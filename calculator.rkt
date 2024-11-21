@@ -22,8 +22,6 @@
   (send display set-value (calc-str)))
 
 ; Function to manually parse and calculate basic arithmetic expressions
-; Function to manually parse and calculate basic arithmetic expressions
-; Function to manually parse and calculate basic arithmetic expressions
 (define (calculate expr)
   (define operators '(+ - * /))
 
@@ -31,11 +29,14 @@
   (define (extract-tokens expr)
     (define (helper expr tokens current)
       (cond
-        [(empty? expr) (if (empty? current) tokens (append tokens (list current)))] ; End of string
+        [(empty? expr) 
+         (if (empty? current) tokens (append tokens (list current)))] ; End of string
         [(char-numeric? (car expr)) ; If the current char is a number
          (helper (cdr expr) tokens (string-append current (string (car expr))))] ; Append to current number
         [(member (car expr) operators) ; If the current char is an operator
-         (helper (cdr expr) (append tokens (list current (string (car expr)))) "")] ; Add the number and operator to tokens
+         (if (not (empty? current)) 
+             (helper (cdr expr) (append tokens (list current (string (car expr)))) "") ; Add the number and operator to tokens
+             (helper (cdr expr) (append tokens (list (string (car expr)))) ""))] ; If current is empty, only append operator
         [else (helper (cdr expr) tokens current)])) ; Otherwise continue
 
     (helper (string->list expr) '() "")) ; Start from the beginning of the expression
@@ -54,7 +55,7 @@
       [(equal? op '*) (* num1 num2)]
       [(equal? op '/) (if (= num2 0) 'Error (/ num1 num2))])) ; Prevent division by zero
 
-  ; Process the tokens
+  ; Function to process the tokens and perform the calculation
   (define (process-tokens tokens result)
     (if (null? tokens)
         result
