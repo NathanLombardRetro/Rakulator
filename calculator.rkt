@@ -22,6 +22,8 @@
   (send display set-value (calc-str)))
 
 ; Function to manually parse and calculate basic arithmetic expressions
+; Function to manually parse and calculate basic arithmetic expressions
+; Function to manually parse and calculate basic arithmetic expressions
 (define (calculate expr)
   (define operators '(+ - * /))
 
@@ -29,14 +31,11 @@
   (define (extract-tokens expr)
     (define (helper expr tokens current)
       (cond
-        [(empty? expr) 
-         (if (empty? current) tokens (append tokens (list current)))] ; End of string
+        [(empty? expr) (if (empty? current) tokens (append tokens (list current)))] ; End of string
         [(char-numeric? (car expr)) ; If the current char is a number
          (helper (cdr expr) tokens (string-append current (string (car expr))))] ; Append to current number
         [(member (car expr) operators) ; If the current char is an operator
-         (if (empty? current)
-             (helper (cdr expr) tokens "") ; Ignore consecutive operators without a number
-             (helper (cdr expr) (append tokens (list current (string (car expr)))) ""))] ; Add number and operator to tokens
+         (helper (cdr expr) (append tokens (list current (string (car expr)))) "")] ; Add the number and operator to tokens
         [else (helper (cdr expr) tokens current)])) ; Otherwise continue
 
     (helper (string->list expr) '() "")) ; Start from the beginning of the expression
@@ -53,22 +52,23 @@
       [(equal? op '+) (+ num1 num2)]
       [(equal? op '-) (- num1 num2)]
       [(equal? op '*) (* num1 num2)]
-      [(equal? op '/) (if (= num2 0) 'Error (/ num1 num2))])) ; Division by zero
+      [(equal? op '/) (if (= num2 0) 'Error (/ num1 num2))])) ; Prevent division by zero
+
+  ; Process the tokens
+  (define (process-tokens tokens result)
+    (if (null? tokens)
+        result
+        (let* ([num1 (string->number (car tokens))]
+               [op (cadr tokens)]
+               [num2 (string->number (caddr tokens))])
+          (let* ([new-result (apply-op num1 op num2)]
+                 [remaining-tokens (cdddr tokens)])
+            (process-tokens remaining-tokens new-result)))))
 
   ; If there are no tokens, return 0
   (if (null? tokens)
       0
-      (let loop ([tokens tokens] [result (string->number (car tokens))])
-        (if (null? (cdr tokens))
-            (begin
-              ; Debugging: Print the final result
-              (displayln (string-append "Final result: " (number->string result)))
-              result)  ; Return the final result
-            (let* ([op (car (cdr tokens))] ; The operator
-                   [next-num (string->number (cadr tokens))]) ; Next number
-              ; Debugging: Show operator and numbers being operated on
-              (displayln (string-append "Applying: " (number->string result) " " (symbol->string op) " " (number->string next-num)))
-              (loop (cddr tokens) (apply-op result op next-num)))))))
+      (process-tokens tokens 0)))
 
 ; Function to handle button clicks
 (define (button-click value)
@@ -76,20 +76,21 @@
   (cond
     [(equal? value "=")
      (with-handlers ([exn:fail? (λ (e) (calc-str "Error"))]) ; Catch errors
-       (let ([expr (calc-str)])
+       (let ([expr (calc-str)])  ; Get the current calculation expression
          (displayln (string-append "Evaluating: " expr)) ; Debugging: Print expression
          (if (string=? expr "")
-             (calc-str "")
-             (let ([result (calculate expr)])
+             (calc-str "")  ; If empty expression, clear the display
+             (let ([result (calculate expr)])  ; Perform the calculation
                (displayln (string-append "Result: " (number->string result))) ; Debugging: Print result
-               (calc-str (number->string result))))))]
+               (calc-str (number->string result))))))] ; Set result to display
 
     [(equal? value "C")
-     (calc-str "")
-     (update-display)]
+     (calc-str "") ; Clear the expression
+     (update-display)] ; Update the display
     [else
-     (calc-str (string-append (calc-str) value))
-     (update-display)]))
+     (calc-str (string-append (calc-str) value)) ; Append clicked value to expression
+     (update-display)])) ; Update the display
+
 
 ; Helper to create buttons
 (define (make-button parent label)
@@ -99,12 +100,12 @@
        [callback (λ (button event) 
                    (button-click (if (number? label) 
                                     (number->string label) 
-                                    (symbol->string label))))]))
+                                    (symbol->string label))))])) 
 
 ; Create a vertical panel to hold rows
 (define button-panel
   (new vertical-panel% 
-       [parent frame]))
+       [parent frame])) 
 
 ; Define button labels for the grid
 (define button-labels
