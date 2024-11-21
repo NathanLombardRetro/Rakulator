@@ -34,7 +34,9 @@
         [(char-numeric? (car expr)) ; If the current char is a number
          (helper (cdr expr) tokens (string-append current (string (car expr))))] ; Append to current number
         [(member (car expr) operators) ; If the current char is an operator
-         (helper (cdr expr) (append tokens (list current (string (car expr)))) "")] ; Add the number and operator to tokens
+         (if (empty? current)
+             (helper (cdr expr) tokens "") ; Ignore consecutive operators without a number
+             (helper (cdr expr) (append tokens (list current (string (car expr)))) ""))] ; Add number and operator to tokens
         [else (helper (cdr expr) tokens current)])) ; Otherwise continue
 
     (helper (string->list expr) '() "")) ; Start from the beginning of the expression
