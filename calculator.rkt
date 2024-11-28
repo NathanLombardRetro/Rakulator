@@ -14,84 +14,65 @@
        [enabled #f]
        [label ""]))
 
-; Define a variable to store the current calculation string
-(define calc-str (make-parameter ""))
+; Define variables to store the current calculation state
+(define current-num (make-parameter ""))
+(define previous-num (make-parameter ""))
+(define current-operator (make-parameter '()))
 
 ; Function to update the display
 (define (update-display)
-  (send display set-value (calc-str)))
+  (send display set-value (current-num)))
 
-; Function to manually parse and calculate basic arithmetic expressions
-(define (calculate expr)
-  (define operators '(+ - * /))
+; Functions for each operation
+(define (add num1 num2) (+ num1 num2))
+(define (subtract num1 num2) (- num1 num2))
+(define (multiply num1 num2) (* num1 num2))
+(define (divide num1 num2) 
+  (if (= num2 0) 'Error (/ num1 num2)))
 
-  ; Helper function to extract tokens from the expression
-  (define (extract-tokens expr)
-    (define (helper expr tokens current)
-      (cond
-        [(empty? expr) 
-         (if (empty? current) tokens (append tokens (list current)))] ; End of string
-        [(char-numeric? (car expr)) ; If the current char is a number
-         (helper (cdr expr) tokens (string-append current (string (car expr))))] ; Append to current number
-        [(member (car expr) operators) ; If the current char is an operator
-         (if (not (empty? current)) 
-             (helper (cdr expr) (append tokens (list current (string (car expr)))) "") ; Add the number and operator to tokens
-             (helper (cdr expr) (append tokens (list (string (car expr)))) ""))] ; If current is empty, only append operator
-        [else (helper (cdr expr) tokens current)])) ; Otherwise continue
-
-    (helper (string->list expr) '() "")) ; Start from the beginning of the expression
-
-  ; Split the expression into tokens (numbers and operators)
-  (define tokens (extract-tokens expr))
-
-  ; Debugging: Show tokens
-  (displayln (string-append "Tokens: " (format "~a" tokens)))
-
-  ; Function to apply an operator
-  (define (apply-op num1 op num2)
+; Function to perform the operation based on the current operator
+(define (perform-operation)
+  (let* ([num1 (string->number (previous-num))]
+         [num2 (string->number (current-num))]
+         [op (current-operator)])
     (cond
-      [(equal? op '+) (+ num1 num2)]
-      [(equal? op '-) (- num1 num2)]
-      [(equal? op '*) (* num1 num2)]
-      [(equal? op '/) (if (= num2 0) 'Error (/ num1 num2))])) ; Prevent division by zero
-
-  ; Function to process the tokens and perform the calculation
-  (define (process-tokens tokens result)
-    (if (null? tokens)
-        result
-        (let* ([num1 (string->number (car tokens))]
-               [op (cadr tokens)]
-               [num2 (string->number (caddr tokens))])
-          (let* ([new-result (apply-op num1 op num2)]
-                 [remaining-tokens (cdddr tokens)])
-            (process-tokens remaining-tokens new-result)))))
-
-  ; If there are no tokens, return 0
-  (if (null? tokens)
-      0
-      (process-tokens tokens 0)))
+      [(not num1) 'Error] ; If previous-num is invalid, return error
+      [(not num2) 'Error] ; If current-num is invalid, return error
+      [(equal? op '+) (add num1 num2)]
+      [(equal? op '-) (subtract num1 num2)]
+      [(equal? op '*) (multiply num1 num2)]
+      [(equal? op '/) (divide num1 num2)]
+      [else 'Error])))
 
 ; Function to handle button clicks
 (define (button-click value)
-  (displayln (string-append "Button clicked: " value)) ; Debugging: Show clicked button value
+  (displayln (string-append "Button clicked: " value))) ; Debugging: Show clicked button value
   (cond
-    [(equal? value "=")
-     (with-handlers ([exn:fail? (λ (e) (calc-str "Error"))]) ; Catch errors
-       (let ([expr (calc-str)])  ; Get the current calculation expression
-         (displayln (string-append "Evaluating: " expr)) ; Debugging: Print expression
-         (if (string=? expr "")
-             (calc-str "")  ; If empty expression, clear the display
-             (let ([result (calculate expr)])  ; Perform the calculation
-               (displayln (string-append "Result: " (number->string result))) ; Debugging: Print result
-               (calc-str (number->string result))))))] ; Set result to display
+    [(equal? value "=") ; If "=" is clicked
+     (with-handlers ([exn:fail? (λ (e) (current-num "Error"))]) ; Catch errors
+       (let ([result (perform-operation)])  ; Perform the calculation
+         (current-num (if (eq? result 'Error) 
+                          "Error" 
+                          (number->string result)))))]
+     
+     (set! previous-num (current-num)) ; Store result as previous-num for next operation
+     )]
 
-    [(equal? value "C")
-     (calc-str "") ; Clear the expression
-     (update-display)] ; Update the display
-    [else
-     (calc-str (string-append (calc-str) value)) ; Append clicked value to expression
-     (update-display)])) ; Update the display
+    [(equal? value "C") ; If "C" is clicked (clear)
+     (current-num "")
+     (previous-num "")
+     (current-operator '())
+     (update-display)] ; Clear everything and update the display
 
+    [(member value '(+ - * /))  ; If the value is an operator
+     (current-operator (string->symbol value))
+     (previous-num (current-num)) ; Save the current number
+     (current-num "")] ; Clear the current number for the next input
+
+    [else ; For numbers and other values
+     (current-num (string-append (current-num) value))] ; Append clicked value to current number
+  ) ; Closing the cond expression
+  (update-display)) ; Update the display
 
 ; Helper to create buttons
 (define (make-button parent label)
